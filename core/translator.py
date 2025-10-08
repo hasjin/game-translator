@@ -1,6 +1,6 @@
-"""범용 Claude 번역기
+"""범용 번역기
 
-어떤 게임/포맷이든 사용 가능한 범용 번역 엔진
+어떤 게임/포맷이든 사용 가능한 범용 번역 엔진 (Claude, Google, DeepL 지원)
 """
 from anthropic import Anthropic
 import os
@@ -10,14 +10,16 @@ from pathlib import Path
 
 
 class UniversalTranslator:
-    """범용 번역기 (다국어 지원)"""
+    """범용 번역기 (다국어 지원, 다중 엔진)"""
 
     def __init__(
         self,
         rules_file: Optional[str] = None,
         glossary_file: Optional[str] = None,
         source_lang: str = "일본어",
-        target_lang: str = "한국어"
+        target_lang: str = "한국어",
+        engine: str = "Claude Haiku 3.5",
+        model: Optional[str] = None
     ):
         """
         Args:
@@ -25,11 +27,11 @@ class UniversalTranslator:
             glossary_file: 용어집 YAML 파일 경로
             source_lang: 원본 언어 (일본어, 영어, 중국어 등)
             target_lang: 대상 언어 (한국어, 영어 등)
+            engine: 번역 엔진 (Claude Haiku 3.5, Google Translate 등)
+            model: 모델 ID (선택사항, engine에서 자동 결정)
         """
-        self.client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-        self.model = "claude-3-5-haiku-20241022"
-
-        # 언어 설정
+        # 엔진 설정
+        self.engine = engine
         self.source_lang = source_lang
         self.target_lang = target_lang
 
@@ -37,8 +39,33 @@ class UniversalTranslator:
         self.rules = self._load_rules(rules_file)
         self.glossary = self._load_glossary(glossary_file)
 
-        # 시스템 프롬프트 생성
-        self.system_prompt = self._build_system_prompt()
+        # 엔진별 초기화
+        if "Google" in engine:
+            from cli.translator import GoogleTranslateEngine
+            self.translator = GoogleTranslateEngine()
+            self.is_claude = False
+        elif "DeepL" in engine:
+            from cli.translator import DeepLEngine
+            deepl_key = os.environ.get("DEEPL_API_KEY")
+            self.translator = DeepLEngine(api_key=deepl_key)
+            self.is_claude = False
+        else:  # Claude
+            self.client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+            self.model = model or self._get_model_from_engine(engine)
+            self.system_prompt = self._build_system_prompt()
+            self.is_claude = True
+            self.translator = None
+
+    def _get_model_from_engine(self, engine: str) -> str:
+        """엔진 이름으로부터 모델 ID 결정"""
+        if "Haiku" in engine:
+            return "claude-3-5-haiku-20241022"
+        elif "Sonnet 4" in engine:
+            return "claude-sonnet-4-20250514"
+        elif "Sonnet 3.5" in engine:
+            return "claude-3-5-sonnet-20241022"
+        else:
+            return "claude-3-5-haiku-20241022"  # 기본값
 
     def _load_rules(self, rules_file: Optional[str]) -> dict:
         """번역 규칙 로드"""
@@ -127,6 +154,41 @@ class UniversalTranslator:
 
         return prompt
 
+    def translate(self, text: str) -> str:
+        """단일 텍스트 번역
+
+        Args:
+            text: 번역할 텍스트
+
+        Returns:
+            번역된 텍스트
+        """
+        if not text or not text.strip():
+            return text
+
+        # Google/DeepL 엔진 사용
+        if not self.is_claude:
+            source_code = self._convert_lang_to_code(self.source_lang)
+            target_code = self._convert_lang_to_code(self.target_lang)
+            return self.translator.translate(text, source_code, target_code)
+
+        # Claude 사용 (translate_batch 호출)
+        result = self.translate_batch([text])
+        return result[0] if result else text
+
+    def _convert_lang_to_code(self, lang: str) -> str:
+        """언어 이름을 코드로 변환"""
+        lang_map = {
+            "일본어": "ja",
+            "영어": "en",
+            "한국어": "ko",
+            "중국어": "zh",
+            "중국어 간체": "zh-CN",
+            "중국어 번체": "zh-TW",
+            "자동 감지": "auto"
+        }
+        return lang_map.get(lang, "auto")
+
     def translate_batch(
         self,
         texts: List[str],
@@ -141,6 +203,13 @@ class UniversalTranslator:
         Returns:
             번역된 텍스트 리스트
         """
+        # Google/DeepL 엔진 사용
+        if not self.is_claude:
+            source_code = self._convert_lang_to_code(self.source_lang)
+            target_code = self._convert_lang_to_code(self.target_lang)
+            return self.translator.translate_batch(texts, source_code, target_code)
+
+        # Claude 사용
         # 빈 줄 필터링 (인덱스 기억)
         non_empty_indices = []
         non_empty_texts = []

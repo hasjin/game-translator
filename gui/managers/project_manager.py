@@ -19,13 +19,15 @@ class ProjectManagerMixin:
         # 게임 형식 감지
         detector = GameLanguageDetector()
         format_info = detector.detect_game_format(folder)
+        game_type = format_info.get('game_type', 'unknown')
 
-        if not format_info['is_naninovel']:
-            # 상세 정보가 있으면 함께 표시
+        # 지원하지 않는 게임 형식 체크
+        if game_type == 'unknown':
             detailed_message = f"{format_info['message']}\n\n"
             if format_info.get('details'):
                 detailed_message += f"{format_info['details']}\n\n"
-            detailed_message += f"현재 이 도구는 Naninovel 엔진을 사용하는 게임만 지원합니다."
+            detailed_message += "이 게임은 현재 지원하지 않는 형식입니다.\n"
+            detailed_message += "Naninovel 또는 일반 Unity 게임만 지원합니다."
 
             msg_box = QMessageBox(self)
             msg_box.setIcon(QMessageBox.Icon.Warning)
@@ -34,6 +36,21 @@ class ProjectManagerMixin:
             msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
             msg_box.exec()
             return
+
+        # 일반 Unity 게임 안내 메시지
+        if game_type in ['unity_generic', 'unity_other']:
+            info_message = f"{format_info['message']}\n\n"
+            if format_info.get('details'):
+                info_message += f"{format_info['details']}\n\n"
+            info_message += "프로젝트를 생성하고 번역을 진행할 수 있습니다."
+
+            msg_box = QMessageBox(self)
+            msg_box.setIcon(QMessageBox.Icon.Information)
+            msg_box.setWindowTitle("일반 Unity 게임 감지")
+            msg_box.setText(info_message)
+            msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+            msg_box.exec()
+            # return 하지 않고 계속 진행
 
         # Naninovel 게임이지만 특수한 구조일 경우 안내
         if format_info['is_naninovel']:

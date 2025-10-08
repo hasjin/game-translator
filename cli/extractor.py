@@ -42,20 +42,40 @@ class UnityTextExtractor:
         self.game_path = Path(game_path)
         self.entries: List[TextEntry] = []
 
+        # *_Data 폴더 자동 감지
+        self.data_folder = self._find_data_folder()
+
+    def _find_data_folder(self) -> Path:
+        """Unity 게임의 *_Data 폴더 찾기"""
+        # 게임 경로 자체가 *_Data 폴더인지 확인
+        if self.game_path.name.endswith('_Data'):
+            return self.game_path
+
+        # *_Data 폴더 검색
+        data_folders = list(self.game_path.glob('*_Data'))
+        if data_folders:
+            return data_folders[0]
+
+        # 없으면 게임 경로 그대로 사용
+        return self.game_path
+
     def extract(self) -> List[TextEntry]:
         """자동으로 게임 구조 감지하여 텍스트 추출"""
+        print(f"[UnityTextExtractor] Game path: {self.game_path}")
+        print(f"[UnityTextExtractor] Data folder: {self.data_folder}")
+
         if self._is_single_bundle():
             return self._extract_from_bundle()
         else:
-            return self._extract_from_assets()
+            return self._extract_from_assets_unitypy()
 
     def _is_single_bundle(self) -> bool:
-        return (self.game_path / "data.unity3d").exists()
+        return (self.data_folder / "data.unity3d").exists()
 
     def _extract_from_bundle(self) -> List[TextEntry]:
         """UnityPy로 단일 번들 파일 추출"""
-        print(f"[UnityPy] Extracting from bundle: {self.game_path}")
-        bundle_file = self.game_path / "data.unity3d"
+        print(f"[UnityPy] Extracting from bundle: {self.data_folder}")
+        bundle_file = self.data_folder / "data.unity3d"
         env = UnityPy.load(str(bundle_file))
         entries = []
 
@@ -90,6 +110,76 @@ class UnityTextExtractor:
                         ))
             except:
                 pass
+
+        filtered = self._filter_translatable(entries)
+        print(f"  Total strings: {len(entries)}, Translatable: {len(filtered)}")
+        self.entries = filtered
+        return filtered
+
+    def _extract_from_assets_unitypy(self) -> List[TextEntry]:
+        """UnityPy로 분할 asset 파일 추출"""
+        print(f"[UnityPy] Extracting from assets: {self.data_folder}")
+
+        # asset 파일 검색
+        asset_files = []
+        patterns = ["*.assets", "*.resource", "level*", "sharedassets*", "resources.*", "globalgamemanagers*"]
+
+        for pattern in patterns:
+            found = list(self.data_folder.glob(pattern))
+            asset_files.extend(found)
+
+        # 중복 제거 및 정렬
+        asset_files = list(set(asset_files))
+        asset_files.sort()
+
+        print(f"  Found {len(asset_files)} asset files")
+
+        if not asset_files:
+            print(f"  [WARNING] No asset files found in {self.data_folder}")
+            return []
+
+        entries = []
+
+        for asset_file in asset_files[:50]:  # 최대 50개 파일 처리
+            try:
+                print(f"  Processing: {asset_file.name}")
+                env = UnityPy.load(str(asset_file))
+
+                for obj in env.objects:
+                    try:
+                        data = obj.read()
+
+                        if obj.type.name == 'TextAsset':
+                            if hasattr(data, 'text') and data.text and len(data.text) > 10:
+                                entries.append(TextEntry(
+                                    text=data.text,
+                                    context={'type': 'TextAsset', 'path_id': obj.path_id, 'name': getattr(data, 'm_Name', ''), 'file': str(asset_file.name)}
+                                ))
+
+                        elif obj.type.name == 'MonoBehaviour':
+                            try:
+                                tree = data.read_typetree()
+                                found_strings = self._extract_strings_from_tree(tree)
+                                for text in found_strings:
+                                    entries.append(TextEntry(
+                                        text=text,
+                                        context={'type': 'MonoBehaviour', 'path_id': obj.path_id, 'file': str(asset_file.name)}
+                                    ))
+                            except:
+                                pass
+
+                        elif obj.type.name == 'GameObject':
+                            if hasattr(data, 'm_Name') and data.m_Name and len(data.m_Name) > 3:
+                                entries.append(TextEntry(
+                                    text=data.m_Name,
+                                    context={'type': 'GameObject', 'path_id': obj.path_id, 'file': str(asset_file.name)}
+                                ))
+                    except Exception as e:
+                        pass
+
+            except Exception as e:
+                print(f"  [ERROR] Failed to load {asset_file.name}: {e}")
+                continue
 
         filtered = self._filter_translatable(entries)
         print(f"  Total strings: {len(entries)}, Translatable: {len(filtered)}")

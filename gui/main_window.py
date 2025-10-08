@@ -30,6 +30,10 @@ class MainWindow(ExcelHandlerMixin, SessionManagerMixin, ProjectManagerMixin, Ta
         self.setWindowTitle("🎮 게임 번역기 v0.1")
         self.setGeometry(100, 100, 1100, 800)
 
+        # 설정 매니저
+        from core.settings_manager import SettingsManager
+        self.settings_manager = SettingsManager()
+
         # 마지막 번역 결과 저장
         self.last_translation_output = None
         self.last_translation_input = None
@@ -70,6 +74,9 @@ class MainWindow(ExcelHandlerMixin, SessionManagerMixin, ProjectManagerMixin, Ta
 
         # 상태바
         self.statusBar().showMessage("준비")
+
+        # 저장된 설정 로드
+        self._load_settings()
 
         # 마지막 세션 복원
         self._restore_session()
@@ -159,7 +166,7 @@ class MainWindow(ExcelHandlerMixin, SessionManagerMixin, ProjectManagerMixin, Ta
 
 
     def detect_chapters(self):
-        """챕터 감지 및 UI 업데이트"""
+        """챕터 감지 및 UI 업데이트 (Naninovel 전용)"""
         input_dir = self.input_path.text()
         if not input_dir:
             QMessageBox.warning(self, "경고", "입력 폴더를 먼저 선택하세요!")
@@ -169,6 +176,21 @@ class MainWindow(ExcelHandlerMixin, SessionManagerMixin, ProjectManagerMixin, Ta
         import re
 
         input_path = Path(input_dir)
+
+        # 게임 형식 확인
+        from core.game_language_detector import GameLanguageDetector
+        detector = GameLanguageDetector()
+        format_info = detector.detect_game_format(input_path)
+
+        # Naninovel 게임이 아니면 챕터 선택 불가
+        if not format_info['is_naninovel']:
+            QMessageBox.information(
+                self,
+                "챕터 선택",
+                "챕터 선택은 Naninovel 게임 전용 기능입니다.\n\n"
+                "일반 Unity 게임은 전체 번역 모드로 진행됩니다."
+            )
+            return
 
         # 1. 텍스트 파일 검색 (이미 추출된 경우)
         all_files = []
@@ -1000,6 +1022,53 @@ class MainWindow(ExcelHandlerMixin, SessionManagerMixin, ProjectManagerMixin, Ta
 
     def extract_glossary(self):
         QMessageBox.information(self, "알림", "용어집 자동 추출 기능은 곧 추가됩니다.")
+
+    def _load_settings(self):
+        """저장된 설정 로드"""
+        settings = self.settings_manager.get_translation_settings()
+
+        # 엔진 설정
+        engine = settings.get('engine', 'Claude Haiku 3.5')
+        index = self.engine_combo.findText(engine)
+        if index >= 0:
+            self.engine_combo.setCurrentIndex(index)
+
+        # 소스 언어
+        source_lang = settings.get('source_lang', '자동 감지')
+        index = self.source_lang_combo.findText(source_lang)
+        if index >= 0:
+            self.source_lang_combo.setCurrentIndex(index)
+
+        # 타겟 언어
+        target_lang = settings.get('target_lang', '한국어')
+        index = self.target_lang_combo.findText(target_lang)
+        if index >= 0:
+            self.target_lang_combo.setCurrentIndex(index)
+
+        # 체크박스
+        self.enable_tm.setChecked(settings.get('use_tm', True))
+        self.enable_quality.setChecked(settings.get('use_quality', True))
+        self.include_font_info.setChecked(settings.get('include_font', True))
+
+        # 콤보박스 변경 시 설정 저장
+        self.engine_combo.currentTextChanged.connect(self._save_current_settings)
+        self.source_lang_combo.currentTextChanged.connect(self._save_current_settings)
+        self.target_lang_combo.currentTextChanged.connect(self._save_current_settings)
+        self.enable_tm.stateChanged.connect(self._save_current_settings)
+        self.enable_quality.stateChanged.connect(self._save_current_settings)
+        self.include_font_info.stateChanged.connect(self._save_current_settings)
+
+    def _save_current_settings(self):
+        """현재 설정 저장"""
+        self.settings_manager.save_translation_settings(
+            engine=self.engine_combo.currentText(),
+            source_lang=self.source_lang_combo.currentText(),
+            target_lang=self.target_lang_combo.currentText(),
+            use_tm=self.enable_tm.isChecked(),
+            use_quality=self.enable_quality.isChecked(),
+            include_font=self.include_font_info.isChecked()
+        )
+        print("✅ 설정 저장됨")
 
 
 def main():

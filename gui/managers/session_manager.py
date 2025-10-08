@@ -112,9 +112,10 @@ class SessionManagerMixin:
                 from core.game_language_detector import GameLanguageDetector
                 detector = GameLanguageDetector()
                 format_info = detector.detect_game_format(game_path)
+                game_type = format_info.get('game_type', 'unknown')
 
-                if not format_info['is_naninovel']:
-                    # 비Naninovel 게임 경고
+                # 지원하지 않는 게임 형식만 경고
+                if game_type == 'unknown':
                     warning_msg = (
                         f"⚠️ 이 프로젝트는 지원하지 않는 게임 형식입니다.\n\n"
                         f"{format_info['message']}\n\n"
@@ -124,7 +125,7 @@ class SessionManagerMixin:
                     warning_msg += (
                         f"이 프로젝트를 삭제하고 세션을 정리하시겠습니까?\n\n"
                         f"• 예: 프로젝트 삭제 및 세션 정리\n"
-                        f"• 아니오: 프로젝트 유지 (사용 불가)"
+                        f"• 아니오: 프로젝트 유지"
                     )
 
                     reply = QMessageBox.question(
@@ -155,7 +156,7 @@ class SessionManagerMixin:
                         # 세션만 삭제하고 종료
                         if session_file.exists():
                             session_file.unlink()
-                        print("⚠️ 비Naninovel 프로젝트 - 세션만 삭제됨")
+                        print("⚠️ 지원하지 않는 게임 형식 - 세션만 삭제됨")
                         return
 
             # 프로젝트 복원

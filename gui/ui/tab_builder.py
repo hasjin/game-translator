@@ -33,25 +33,26 @@ class TabBuilderMixin:
         btn_input.clicked.connect(self.select_input_folder)
         input_layout.addWidget(btn_input)
 
-        btn_detect_chapters = QPushButton("📖 챕터 감지")
-        btn_detect_chapters.clicked.connect(self.detect_chapters)
-        input_layout.addWidget(btn_detect_chapters)
+        # 챕터 감지 버튼은 숨김 처리 (모든 게임에서 동일한 UX 제공)
+        # btn_detect_chapters = QPushButton("📖 챕터 감지")
+        # btn_detect_chapters.clicked.connect(self.detect_chapters)
+        # input_layout.addWidget(btn_detect_chapters)
 
         layout.addWidget(input_group)
 
-        # 챕터 선택 결과 표시
-        self.chapter_info_label = QLabel("")
-        self.chapter_info_label.setStyleSheet("""
-            QLabel {
-                background-color: #f0f8ff;
-                color: #000000;
-                padding: 10px;
-                border-radius: 5px;
-                border: 2px solid #4a90e2;
-            }
-        """)
-        self.chapter_info_label.setVisible(False)
-        layout.addWidget(self.chapter_info_label)
+        # 챕터 선택 결과 표시 (숨김 처리 - 모든 게임에서 동일한 UX 제공)
+        # self.chapter_info_label = QLabel("")
+        # self.chapter_info_label.setStyleSheet("""
+        #     QLabel {
+        #         background-color: #f0f8ff;
+        #         color: #000000;
+        #         padding: 10px;
+        #         border-radius: 5px;
+        #         border: 2px solid #4a90e2;
+        #     }
+        # """)
+        # self.chapter_info_label.setVisible(False)
+        # layout.addWidget(self.chapter_info_label)
 
         # 프로젝트 폴더 정보
         self.project_info_label = QLabel("프로젝트를 선택하거나 생성하세요")

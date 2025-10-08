@@ -13,8 +13,7 @@ Unity 게임 자동 번역 및 게임 적용 도구 (GUI 기반)
 - **품질 관리**: 번역 규칙 및 용어집 관리
 
 ### 🎮 지원하는 게임
-- **Naninovel 엔진**: 완벽 지원 ✅
-- **일반 Unity 게임**: Asset Bundle 구조 자동 감지 ✅
+- **Unity 게임**: 완벽 지원 하려고 노력중 ✅
 - **RPG Maker**: 향후 지원 예정 🔜
 - **Ren'Py**: 향후 지원 예정 🔜
 
@@ -86,7 +85,7 @@ python gui/main_window.py
 
 > **자동으로 처리되는 것들:**
 > - 게임 내 대사/텍스트 파일 자동 검색
-> - Naninovel, Asset Bundle, Unity 패키지 구조 자동 감지
+> - Asset Bundle, Unity 패키지 구조 자동 감지
 > - 번역 가능한 모든 텍스트 추출
 
 ### 3️⃣ Excel 검수 (선택사항)
@@ -112,8 +111,7 @@ python gui/main_window.py
 
 | 게임 형식 | 지원 여부 | 비고 |
 |----------|---------|------|
-| **Naninovel 게임** | ✅ 완벽 지원 | Asset Bundle 자동 처리 |
-| **일반 Unity 게임** | ✅ 지원 | `data.unity3d`, `.bundle`, `.assets` 자동 감지 |
+| **Unity 게임** | ✅ 완벽 지원 | Asset Bundle, 패키지 구조 자동 감지 |
 | **RPG Maker** | 🔜 향후 지원 | - |
 | **Ren'Py** | 🔜 향후 지원 | - |
 
@@ -201,13 +199,14 @@ gametranslator/
 │   ├── managers/         # 프로젝트/세션 관리
 │   └── handlers/         # Excel 검수 처리
 ├── core/                 # 핵심 번역 엔진
-│   ├── translator.py     # Claude API 번역
+│   ├── translator.py     # AI 번역 엔진
 │   ├── bundle_packer.py  # Bundle 패킹
 │   ├── excel_manager.py  # Excel 검수
-│   ├── game_language_detector.py  # 언어/구조 감지
-│   └── naninovel.py      # Naninovel 파서
-├── cli/                  # CLI 내부 도구 (GUI에서 호출)
-│   ├── extractor.py      # Unity 텍스트 추출
+│   ├── game_language_detector.py  # 게임 구조 감지
+│   ├── naninovel.py      # 게임 엔진 파서
+│   └── settings_manager.py  # 설정 관리
+├── cli/                  # 내부 도구 (GUI에서 호출)
+│   ├── extractor.py      # 텍스트 추출
 │   ├── translator.py     # 번역 엔진 래퍼
 │   └── patcher.py        # 게임 패치
 ├── security/             # 보안 모듈
@@ -215,7 +214,6 @@ gametranslator/
 │   └── secure_config.py  # 보안 설정
 ├── tools/                # 개발 도구
 │   ├── analytics_dashboard.py
-│   ├── auto_backup.py
 │   └── batch_compare.py
 ├── examples/             # 번역 규칙 및 용어집 예시
 │   ├── translation_rules_*.yaml
@@ -235,8 +233,9 @@ gametranslator/
 ## 🛡️ 백업 및 복원
 
 ### 자동 백업
-- Naninovel: 게임 적용 시 `backups/bundle_backup_[timestamp]/`에 자동 백업
-- 일반 Unity: 패치 적용 시 `게임_Data_backup/`에 자동 백업
+- 게임 적용 시 원본 파일 자동 백업
+  - Asset Bundle: `backups/bundle_backup_[timestamp]/`
+  - 기타 파일: `게임_Data_backup/`
 
 ### 수동 복원
 ```python
