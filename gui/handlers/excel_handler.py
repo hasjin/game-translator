@@ -107,8 +107,14 @@ class ExcelHandlerMixin:
                 self.translation_entries
             )
 
-            # 수정된 항목 개수 계산
-            modified_count = sum(1 for e in updated_entries if e.status == 'modified')
+            # 수정된 항목 개수 계산 (dict와 TranslationEntry 모두 처리)
+            modified_count = 0
+            for e in updated_entries:
+                if isinstance(e, dict):
+                    if e.get('status') == 'modified':
+                        modified_count += 1
+                elif hasattr(e, 'status') and e.status == 'modified':
+                    modified_count += 1
 
             if modified_count == 0:
                 QMessageBox.information(
@@ -258,14 +264,16 @@ class ExcelHandlerMixin:
         # 수정된 항목 매핑 (원문 -> 수정본)
         updates_map = {}
         for entry in updated_entries:
-            if hasattr(entry, 'status') and entry.status == 'modified':
-                # TranslationEntry 객체인 경우
-                original = entry.japanese if hasattr(entry, 'japanese') else entry.get('original', '')
-                modified = entry.translation if hasattr(entry, 'translation') else entry.get('translated', '')
-                updates_map[original] = modified
-            elif isinstance(entry, dict) and entry.get('original'):
-                # dict 타입인 경우
-                updates_map[entry['original']] = entry['translated']
+            if isinstance(entry, dict):
+                # Unity 게임 (dict) 처리
+                if entry.get('status') == 'modified' and entry.get('original'):
+                    updates_map[entry['original']] = entry['translated']
+            elif hasattr(entry, 'status') and entry.status == 'modified':
+                # Naninovel (TranslationEntry) 처리
+                original = entry.japanese if hasattr(entry, 'japanese') else ''
+                modified = entry.modified_translation if hasattr(entry, 'modified_translation') and entry.modified_translation else entry.translation
+                if original:
+                    updates_map[original] = modified
 
         # JSON entries 업데이트
         modified_count = 0

@@ -153,13 +153,13 @@ class ExcelManager:
     def import_from_excel(
         self,
         excel_path: str,
-        original_entries: List[TranslationEntry]
-    ) -> Tuple[List[TranslationEntry], List[Dict]]:
+        original_entries: List  # List[TranslationEntry] 또는 List[Dict]
+    ) -> Tuple[List, List[Dict]]:
         """Excel에서 가져오기 및 병합
 
         Args:
             excel_path: Excel 파일 경로
-            original_entries: 원본 번역 항목
+            original_entries: 원본 번역 항목 (TranslationEntry 또는 dict)
 
         Returns:
             (병합된 항목 리스트, 충돌 리스트)
@@ -167,13 +167,25 @@ class ExcelManager:
         # Excel 읽기
         df = pd.read_excel(excel_path)
 
+        # 타입 감지 (Unity dict vs Naninovel TranslationEntry)
+        is_dict_type = len(original_entries) > 0 and isinstance(original_entries[0], dict)
+
         # ID 기반 매핑
-        original_map = {e.entry_id: e for e in original_entries}
+        if is_dict_type:
+            # Unity 게임 (dict): 원문을 키로 사용
+            original_map = {}
+            for i, e in enumerate(original_entries, 1):
+                original_map[i] = e
+        else:
+            # Naninovel (TranslationEntry): entry_id를 키로 사용
+            original_map = {e.entry_id: e for e in original_entries}
+
         conflicts = []
         updated_count = 0
 
         print(f"📊 Excel 컬럼: {list(df.columns)}")
         print(f"📊 Excel 총 행 수: {len(df)}")
+        print(f"📊 데이터 타입: {'Unity (dict)' if is_dict_type else 'Naninovel (TranslationEntry)'}")
 
         empty_count = 0
         same_count = 0
@@ -190,15 +202,26 @@ class ExcelManager:
             if entry_id in original_map:
                 original = original_map[entry_id]
 
-                # 수정 사항 반영 (수정된 내용이 AI 번역과 다를 때만)
-                if modified != original.translation:
-                    original.modified_translation = modified
-                    original.status = 'modified'
-                    updated_count += 1
-                    if updated_count <= 3:  # 처음 3개만 출력
-                        print(f"  ✏️ 수정: {original.translation[:30]}... → {modified[:30]}...")
+                if is_dict_type:
+                    # Unity 게임 (dict) 처리
+                    if modified != original.get('translated', ''):
+                        original['translated'] = modified
+                        original['status'] = 'modified'
+                        updated_count += 1
+                        if updated_count <= 3:
+                            print(f"  ✏️ 수정: {original.get('translated', '')[:30]}... → {modified[:30]}...")
+                    else:
+                        same_count += 1
                 else:
-                    same_count += 1
+                    # Naninovel (TranslationEntry) 처리
+                    if modified != original.translation:
+                        original.modified_translation = modified
+                        original.status = 'modified'
+                        updated_count += 1
+                        if updated_count <= 3:
+                            print(f"  ✏️ 수정: {original.translation[:30]}... → {modified[:30]}...")
+                    else:
+                        same_count += 1
             else:
                 # ID 없음 → 충돌
                 conflicts.append({
@@ -207,7 +230,7 @@ class ExcelManager:
                     'line': row.get('줄번호'),
                     'reason': 'ID not found in original'
                 })
-                if len(conflicts) <= 3:  # 처음 3개만 출력
+                if len(conflicts) <= 3:
                     print(f"  ⚠️ ID 없음: {entry_id}")
 
         print(f"✅ Excel 가져오기 완료:")
