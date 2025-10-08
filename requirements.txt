@@ -1,3 +1,7 @@
+# Unity 게임 파일 처리
+UnityPy>=1.10.0            # Unity asset 읽기/쓰기
+pythonnet>=3.0.0           # .NET 라이브러리 호출 (AssetsTools.NET)
+
 # 핵심 AI 번역 엔진
 anthropic>=0.39.0          # Claude API
 openai>=1.0.0              # ChatGPT API

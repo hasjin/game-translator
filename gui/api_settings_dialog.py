@@ -9,9 +9,9 @@ from PyQt6.QtGui import QFont
 import sys
 from pathlib import Path
 
-# utils 경로 추가
+# security 경로 추가
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from utils.secure_storage import SecureStorage
+from security.secure_storage import SecureStorage
 
 
 class APISettingsDialog(QDialog):

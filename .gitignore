@@ -10,7 +10,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/  # Commented: we use lib/ for external tools
 lib64/
 parts/
 sdist/
@@ -60,10 +60,10 @@ secure_keys.json
 .env
 api_keys.json
 
-# Config (include translation rules and glossary templates)
-config/api_keys.json
-config/*_personal.yaml
-config/*_custom.json
+# Config (user settings and customizations)
+config/*.yaml
+config/*.json
+!config/.gitkeep
 
 # Project workspace
 projects/
@@ -71,9 +71,14 @@ translation_work/
 output/
 temp/
 tmp/
+archive/
+translations/
 
 # Project documentation (internal use only)
 PROJECT.md
+project.md
+project_architecture.md
+REFACTORING_HISTORY.md
 
 # Excel files (except examples)
 *.xlsx
@@ -86,3 +91,9 @@ PROJECT.md
 # Test outputs
 test_bundle_output.*
 test_extraction/
+
+# External libraries (lib folder)
+lib/*.dll
+lib/*.tpk
+lib/*.pdb
+!lib/SETUP.txt
