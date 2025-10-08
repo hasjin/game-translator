@@ -1,0 +1,88 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+_archived/
+.installed.cfg
+*.egg
+session.json
+MANIFEST
+
+# Virtual Environment
+venv/
+venv310/
+ENV/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+*.iml
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Data & Cache
+data/
+*.cache
+
+# Backups
+backups/
+
+# Logs
+*.log
+
+# Credentials & Keys
+.credentials.bin
+secure_keys.json
+*.key
+*.pem
+.env
+api_keys.json
+
+# Config (include translation rules and glossary templates)
+config/api_keys.json
+config/*_personal.yaml
+config/*_custom.json
+
+# Project workspace
+projects/
+translation_work/
+output/
+temp/
+tmp/
+
+# Project documentation (internal use only)
+PROJECT.md
+
+# Excel files (except examples)
+*.xlsx
+!examples/*.xlsx
+
+# Unity Bundle files
+*.bundle
+*.bundle.backup
+
+# Test outputs
+test_bundle_output.*
+test_extraction/
