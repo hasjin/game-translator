@@ -174,8 +174,15 @@ class ProjectManagerMixin:
 
         entries_file = self.current_project / "translation_entries.json"
 
-        # TranslationEntry를 딕셔너리로 변환
-        entries_data = [entry.to_dict() for entry in self.translation_entries]
+        # TranslationEntry 또는 dict를 처리
+        entries_data = []
+        for entry in self.translation_entries:
+            if isinstance(entry, dict):
+                # 이미 dict인 경우 (Unity 게임)
+                entries_data.append(entry)
+            else:
+                # TranslationEntry 객체인 경우 (Naninovel)
+                entries_data.append(entry.to_dict())
 
         with open(entries_file, 'w', encoding='utf-8') as f:
             json.dump(entries_data, f, ensure_ascii=False, indent=2)

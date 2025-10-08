@@ -520,7 +520,28 @@ class TranslationWorker(QThread):
                     return
                 os.environ["ANTHROPIC_API_KEY"] = api_key
 
-            # 3. 번역
+            # 3. 기존 번역 로드 (번역 메모리)
+            existing_json = output_path / "extracted_translated.json"
+            existing_translations = {}
+
+            if existing_json.exists():
+                self.progress.emit(28, "기존 번역 로드 중...")
+                try:
+                    import json
+                    with open(existing_json, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+
+                    for entry_data in data.get('entries', []):
+                        original_text = entry_data.get('text', '')
+                        translated_text = entry_data.get('translated', '')
+                        if original_text and translated_text:
+                            existing_translations[original_text] = translated_text
+
+                    print(f"✅ 기존 번역 {len(existing_translations)}개 로드됨")
+                except Exception as e:
+                    print(f"⚠️ 기존 번역 로드 실패: {str(e)}")
+
+            # 4. 번역
             self.progress.emit(30, f"{len(entries)}개 항목 번역 시작...")
 
             translator = UniversalTranslator(
@@ -530,12 +551,20 @@ class TranslationWorker(QThread):
             )
 
             translated_count = 0
+            skipped_count = 0
+
             for i, entry in enumerate(entries):
                 try:
                     progress_pct = 30 + int((i / len(entries)) * 60)
                     self.progress.emit(progress_pct, f"번역 중... ({i+1}/{len(entries)})")
 
-                    # 번역
+                    # 기존 번역 확인
+                    if entry.text in existing_translations:
+                        entry.translated = existing_translations[entry.text]
+                        skipped_count += 1
+                        continue
+
+                    # 새로운 항목만 번역
                     translation = translator.translate(entry.text)
                     entry.translated = translation
                     translated_count += 1
@@ -560,7 +589,19 @@ class TranslationWorker(QThread):
             extractor.entries = entries
             extractor.save(output_path / "extracted_translated.json")
 
-            # 5. 게임에 적용 (preview_mode가 아닌 경우)
+            # 5. translation_entries 생성 (Excel 내보내기용)
+            self.progress.emit(88, "엑셀 데이터 생성 중...")
+            translation_entries = []
+            for entry in entries:
+                if entry.translated:
+                    translation_entries.append({
+                        'file': entry.context.get('file', 'unknown'),
+                        'original': entry.text,
+                        'translated': entry.translated,
+                        'context': entry.context
+                    })
+
+            # 6. 게임에 적용 (preview_mode가 아닌 경우)
             if not self.preview_mode:
                 self.progress.emit(92, "게임 파일에 번역 적용 중...")
 
@@ -577,19 +618,21 @@ class TranslationWorker(QThread):
             else:
                 apply_msg = "\n💡 '게임에 적용하기' 버튼을 눌러 게임에 적용하세요."
 
-            # 6. 비용 계산
+            # 7. 비용 계산
             cost_info = self.calculate_cost()
 
-            # 7. 완료 메시지
+            # 8. 완료 메시지
             completion_msg = (
                 f"✅ 일반 Unity 게임 번역 완료!\n\n"
-                f"📊 번역: {translated_count}/{len(entries)}개\n"
+                f"📊 새로 번역: {translated_count}개\n"
+                f"⏭️ 건너뛰기 (기존 번역): {skipped_count}개\n"
+                f"📝 총 항목: {len(entries)}개\n"
                 f"💰 비용: ${cost_info['total_cost']:.4f}\n\n"
                 f"📁 저장 위치: {output_path}{apply_msg}"
             )
 
             self.progress.emit(100, "완료")
-            self.finished.emit(completion_msg, cost_info, [], translated_count)
+            self.finished.emit(completion_msg, cost_info, translation_entries, translated_count)
 
         except Exception as e:
             import traceback

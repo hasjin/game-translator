@@ -138,7 +138,15 @@ class ExcelHandlerMixin:
             # 파일에 적용
             if self.last_translation_output:
                 output_dir = Path(self.last_translation_output)
-                manager.apply_to_files(updated_entries, output_dir)
+
+                # JSON 파일 확인 (일반 Unity 게임)
+                json_file = output_dir / "extracted_translated.json"
+                if json_file.exists():
+                    # JSON 파일 업데이트
+                    self._apply_excel_to_json(updated_entries, json_file)
+                else:
+                    # TXT 파일 업데이트 (Naninovel)
+                    manager.apply_to_files(updated_entries, output_dir)
 
                 # 번역 엔트리 업데이트
                 self.translation_entries = updated_entries
@@ -175,7 +183,31 @@ class ExcelHandlerMixin:
         # 기존 엔트리 초기화
         self.translation_entries = []
 
-        # preview 폴더의 모든 .txt 파일 찾기
+        # 1. JSON 파일 확인 (일반 Unity 게임)
+        json_file = preview_dir / "extracted_translated.json"
+        if json_file.exists():
+            print(f"📂 JSON 파일에서 로드: {json_file}")
+            try:
+                import json
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+
+                # JSON에서 entries 추출
+                entries = data.get('entries', [])
+                for entry in entries:
+                    self.translation_entries.append({
+                        'file': entry['context'].get('file', 'unknown'),
+                        'original': entry['text'],
+                        'translated': entry.get('translated', ''),
+                        'context': entry['context']
+                    })
+
+                print(f"✅ {len(self.translation_entries)}개 번역 엔트리 로드 완료 (JSON)")
+                return
+            except Exception as e:
+                print(f"⚠️ JSON 로드 실패: {str(e)}")
+
+        # 2. TXT 파일 로드 (Naninovel 게임)
         txt_files = list(preview_dir.glob("*.txt"))
 
         from core.excel_manager import TranslationEntry
@@ -213,4 +245,38 @@ class ExcelHandlerMixin:
             except Exception as e:
                 print(f"⚠️ 파일 로드 실패: {txt_file.name} - {str(e)}")
 
-        print(f"✅ {len(self.translation_entries)}개 번역 엔트리 로드 완료")
+        print(f"✅ {len(self.translation_entries)}개 번역 엔트리 로드 완료 (TXT)")
+
+    def _apply_excel_to_json(self, updated_entries, json_file: Path):
+        """Excel 수정사항을 JSON 파일에 반영 (일반 Unity 게임)"""
+        import json
+
+        # JSON 파일 로드
+        with open(json_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        # 수정된 항목 매핑 (원문 -> 수정본)
+        updates_map = {}
+        for entry in updated_entries:
+            if hasattr(entry, 'status') and entry.status == 'modified':
+                # TranslationEntry 객체인 경우
+                original = entry.japanese if hasattr(entry, 'japanese') else entry.get('original', '')
+                modified = entry.translation if hasattr(entry, 'translation') else entry.get('translated', '')
+                updates_map[original] = modified
+            elif isinstance(entry, dict) and entry.get('original'):
+                # dict 타입인 경우
+                updates_map[entry['original']] = entry['translated']
+
+        # JSON entries 업데이트
+        modified_count = 0
+        for entry in data.get('entries', []):
+            original_text = entry.get('text', '')
+            if original_text in updates_map:
+                entry['translated'] = updates_map[original_text]
+                modified_count += 1
+
+        # JSON 파일 저장
+        with open(json_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+        print(f"✅ JSON 파일 업데이트 완료: {modified_count}개 항목 수정됨")
