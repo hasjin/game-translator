@@ -88,8 +88,24 @@ class ExcelManager:
         if modified_only:
             entries = [e for e in entries if e.status == 'modified']
 
-        # DataFrame 생성
-        df = pd.DataFrame([e.to_dict() for e in entries])
+        # DataFrame 생성 (dict와 TranslationEntry 모두 처리)
+        data = []
+        for i, e in enumerate(entries):
+            if isinstance(e, dict):
+                # Unity 게임용 dict
+                data.append({
+                    'ID': i + 1,
+                    '파일명': e.get('file', 'unknown'),
+                    '줄번호': '',  # Unity 게임은 줄번호 없음
+                    '원문': e.get('original', ''),
+                    'AI 번역': e.get('translated', ''),
+                    '수정본': ''
+                })
+            else:
+                # Naninovel용 TranslationEntry 객체
+                data.append(e.to_dict())
+
+        df = pd.DataFrame(data)
 
         # Excel 저장 (스타일 적용)
         with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
