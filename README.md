@@ -264,6 +264,31 @@ pip install -r requirements.txt
 python --version  # 3.10 이상인지 확인
 ```
 
+### 📦 설치 시 의존성 충돌 오류
+**증상**: `pip install -r requirements.txt` 실행 시 `anthropic`과 `httpx` 관련 오류
+```
+ERROR: Cannot install anthropic and googletrans...
+```
+
+**원인**: 이전 버전의 requirements.txt 사용 중
+
+**해결**:
+```bash
+# 1. 최신 코드로 업데이트
+git pull
+
+# 2. 기존 패키지 제거 후 재설치
+pip uninstall googletrans deep-translator -y
+pip install -r requirements.txt
+
+# 3. 또는 새 가상환경에서 재설치
+python -m venv venv
+venv\Scripts\activate  # Windows
+pip install -r requirements.txt
+```
+
+**참고**: Google Translate는 `requests` 라이브러리를 통해 직접 API를 호출하므로 별도 패키지가 필요 없습니다.
+
 ### 🌐 게임이 번역된 언어로 안 나올 때
 **가장 흔한 원인**: 게임 언어 설정이 잘못됨
 

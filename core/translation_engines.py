@@ -181,33 +181,52 @@ class GoogleTranslator(BaseTranslator):
 
     def __init__(self, api_key: Optional[str] = None, **kwargs):
         super().__init__(api_key, **kwargs)
-
-        try:
-            from googletrans import Translator
-            self.translator = Translator()
-        except ImportError:
-            print("⚠️ googletrans 패키지 필요: pip install googletrans==4.0.0-rc1")
-            self.translator = None
+        self.base_url = "https://translate.googleapis.com/translate_a/single"
 
     def translate(self, text: str, source_lang: str = "ja", target_lang: str = "ko") -> str:
-        if not self.translator:
-            return text
+        import requests
+        import time
+
+        params = {
+            'client': 'gtx',
+            'sl': source_lang,
+            'tl': target_lang,
+            'dt': 't',
+            'q': text
+        }
 
         try:
-            result = self.translator.translate(text, src=source_lang, dest=target_lang)
-            return result.text
+            response = requests.get(self.base_url, params=params, timeout=10)
+            response.raise_for_status()
+            result = response.json()
+
+            if result and len(result) > 0 and len(result[0]) > 0:
+                translated = ''.join([item[0] for item in result[0] if item[0]])
+                return translated
+            return text
         except Exception as e:
             print(f"⚠️ Google Translate 오류: {e}")
             return text
 
     def translate_batch(self, texts: List[str], source_lang: str = "ja", target_lang: str = "ko") -> List[str]:
-        return [self.translate(t, source_lang, target_lang) for t in texts]
+        import time
+
+        results = []
+        for text in texts:
+            try:
+                translated = self.translate(text, source_lang, target_lang)
+                results.append(translated)
+                time.sleep(0.1)  # Rate limiting
+            except Exception as e:
+                print(f"⚠️ Google Translate 배치 오류: {e}")
+                results.append(text)
+        return results
 
     def get_cost_estimate(self, text_count: int, avg_length: int) -> float:
         return 0.0  # 무료
 
     def is_available(self) -> bool:
-        return self.translator is not None
+        return True  # requests는 기본 의존성
 
 
 class DeepLTranslator(BaseTranslator):

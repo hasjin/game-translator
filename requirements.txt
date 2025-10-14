@@ -6,7 +6,7 @@ pythonnet>=3.0.0           # .NET 라이브러리 호출 (AssetsTools.NET)
 anthropic>=0.39.0          # Claude API
 openai>=1.0.0              # ChatGPT API
 deepl>=1.16.0              # DeepL API
-googletrans==4.0.0-rc1     # Google Translate (무료)
+# Google Translate는 requests를 통해 직접 API 호출 (googletrans 패키지 불필요)
 
 # GUI
 PyQt6>=6.6.0
