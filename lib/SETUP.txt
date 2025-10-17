@@ -1,0 +1,53 @@
+=========================================
+  외부 라이브러리 설치 가이드
+=========================================
+
+이 폴더는 선택적 외부 도구를 위한 폴더입니다.
+대부분의 게임은 이 파일들 없이도 번역 가능합니다.
+
+-------------------------------------------
+📦 AssetsTools.NET (선택사항)
+-------------------------------------------
+
+일부 특수한 Unity 게임에서 필요합니다.
+
+다운로드:
+  https://github.com/nesrak1/AssetsTools.NET/releases
+
+설치 방법:
+  1. 위 링크에서 최신 Release 다운로드
+  2. AssetsTools.NET.dll 파일을 이 폴더(lib/)에 복사
+
+파일 위치:
+  gametranslator/lib/AssetsTools.NET.dll
+
+-------------------------------------------
+📦 classdata.tpk (선택사항)
+-------------------------------------------
+
+AssetsTools.NET과 함께 사용되는 Unity 타입 데이터베이스입니다.
+
+다운로드:
+  https://github.com/nesrak1/AssetsTools.NET/releases
+  (동일한 릴리즈 페이지에서 classdata.tpk 다운로드)
+
+설치 방법:
+  1. classdata.tpk 파일을 이 폴더(lib/)에 복사
+
+파일 위치:
+  gametranslator/lib/classdata.tpk
+
+-------------------------------------------
+✅ 설치 완료 확인
+-------------------------------------------
+
+이 폴더에 다음 파일이 있으면 정상입니다:
+
+lib/
+├── SETUP.txt (이 파일)
+├── AssetsTools.NET.dll (선택사항)
+└── classdata.tpk (선택사항)
+
+참고:
+- 파일이 없어도 대부분의 게임은 UnityPy로 번역 가능
+- 번역 중 "AssetsTools.NET not available" 경고가 나오면 설치 필요

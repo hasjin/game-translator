@@ -1,0 +1,103 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+# lib/  # Commented: we use lib/ for external tools
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+_archived/
+.installed.cfg
+*.egg
+session.json
+MANIFEST
+
+# Virtual Environment
+venv/
+venv310/
+ENV/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+*.iml
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Data & Cache
+data/
+*.cache
+
+# Backups
+backups/
+
+# Logs
+*.log
+
+# Credentials & Keys
+.credentials.bin
+secure_keys.json
+*.key
+*.pem
+.env
+api_keys.json
+
+# Config (user settings and customizations)
+config/*.yaml
+config/*.json
+!config/.gitkeep
+
+# Project workspace
+projects/
+translation_work/
+output/
+temp/
+tmp/
+archive/
+translations/
+
+# Project documentation (internal use only)
+PROJECT.md
+project.md
+project_architecture.md
+REFACTORING_HISTORY.md
+
+# Excel files (except examples)
+*.xlsx
+!examples/*.xlsx
+
+# Unity Bundle files
+*.bundle
+*.bundle.backup
+
+# Test outputs
+test_bundle_output.*
+test_extraction/
+
+# External libraries (lib folder)
+lib/*.dll
+lib/*.tpk
+lib/*.pdb
+!lib/SETUP.txt
+/.deepl_key
+/.claude_key
+/game_zip/
+/venv_win/

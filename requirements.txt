@@ -1,0 +1,27 @@
+# Unity 게임 파일 처리
+UnityPy>=1.10.0            # Unity asset 읽기/쓰기
+pythonnet>=3.0.0           # .NET 라이브러리 호출 (AssetsTools.NET)
+
+# 핵심 AI 번역 엔진
+anthropic>=0.39.0          # Claude API
+openai>=1.0.0              # ChatGPT API
+deepl>=1.16.0              # DeepL API
+# Google Translate는 requests를 통해 직접 API 호출 (googletrans 패키지 불필요)
+
+# GUI
+PyQt6>=6.6.0
+pyyaml>=6.0
+
+# Excel 처리
+pandas>=2.0.0
+openpyxl>=3.1.0
+xlsxwriter>=3.1.0
+
+# 유틸리티
+python-dotenv>=1.0.0
+requests>=2.31.0           # HTTP 요청
+cryptography>=41.0.0       # API 키 암호화
+rarfile>=4.0               # RAR 압축 해제 (선택사항)
+
+# 로컬 모델 지원 (선택사항)
+# ollama                   # Ollama Python SDK
