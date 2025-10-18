@@ -1,5 +1,6 @@
 """게임 번역기 GUI 메인 윈도우"""
 import sys
+import json
 from pathlib import Path
 
 # 프로젝트 루트를 path에 추가
@@ -671,6 +672,10 @@ class MainWindow(ArchiveHandlerMixin, ExcelHandlerMixin, SessionManagerMixin, Pr
         format_info = detector.detect_game_format(game_path)
         game_type = format_info.get('game_type', 'unknown')
 
+        # RPG Maker 게임 처리
+        if game_type == 'rpgmaker':
+            return self._apply_rpgmaker_translation(game_path)
+
         # 일반 Unity 게임 처리
         if game_type in ['unity_generic', 'unity_other']:
             return self._apply_general_unity_translation(game_path)
@@ -1070,6 +1075,115 @@ class MainWindow(ArchiveHandlerMixin, ExcelHandlerMixin, SessionManagerMixin, Pr
                     f"📊 적용된 항목: {len(translated_entries)}개\n"
                     f"💾 백업 위치: {game_path.parent / f'{game_path.name}_backup'}\n\n"
                     f"게임을 실행하여 번역을 확인하세요!"
+                )
+
+                self.btn_apply.setEnabled(False)
+                self.statusBar().showMessage("게임에 적용 완료!")
+            else:
+                QMessageBox.warning(
+                    self,
+                    "경고",
+                    "번역 적용 중 오류가 발생했습니다.\n\n"
+                    "콘솔 로그를 확인하세요."
+                )
+
+        except Exception as e:
+            import traceback
+            error_detail = traceback.format_exc()
+            print(f"ERROR: {error_detail}")
+
+            QMessageBox.critical(
+                self,
+                "오류",
+                f"적용 중 오류 발생:\n{str(e)}\n\n"
+                f"자세한 내용은 콘솔 창을 확인하세요."
+            )
+
+    def _apply_rpgmaker_translation(self, game_path: Path):
+        """RPG Maker 게임에 번역 적용"""
+        # translation_entries.json 파일 확인
+        if not self.current_project:
+            QMessageBox.warning(
+                self,
+                "경고",
+                "프로젝트를 찾을 수 없습니다!\n\n"
+                "먼저 번역을 완료하세요."
+            )
+            return
+
+        entries_file = self.current_project / "translation_entries.json"
+        if not entries_file.exists():
+            QMessageBox.warning(
+                self,
+                "경고",
+                "번역 파일을 찾을 수 없습니다!\n\n"
+                "먼저 번역을 완료하세요."
+            )
+            return
+
+        # 확인 다이얼로그
+        reply = QMessageBox.question(
+            self,
+            "게임에 적용",
+            f"⚠️ RPG Maker 게임에 번역을 적용합니다.\n\n"
+            f"📁 게임 경로: {game_path}\n"
+            f"📊 번역 항목: {len(self.translation_entries)}개\n"
+            f"💾 자동 백업: 예 (data_languages/original/)\n\n"
+            f"⚠️ 주의: 다국어 폴더 구조가 생성됩니다!\n"
+            f"   - data_languages/original/ (원본 백업)\n"
+            f"   - data_languages/ko/ (한국어)\n\n"
+            f"계속하시겠습니까?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            from core.rpgmaker_packer import RPGMakerPacker
+
+            # 번역 파일 로드
+            self.statusBar().showMessage("번역 파일 로드 중...")
+            QApplication.processEvents()
+
+            with open(entries_file, 'r', encoding='utf-8') as f:
+                translated_data = json.load(f)
+
+            # 번역된 항목만 필터링
+            translated_entries = [e for e in translated_data if e.get('translated')]
+
+            if not translated_entries:
+                QMessageBox.warning(
+                    self,
+                    "경고",
+                    "번역된 항목이 없습니다!"
+                )
+                return
+
+            # 패치 적용
+            self.statusBar().showMessage(f"{len(translated_entries)}개 항목을 게임에 적용 중...")
+            QApplication.processEvents()
+
+            packer = RPGMakerPacker()
+            success = packer.apply_translations(
+                game_path=game_path,
+                translated_data=translated_entries,
+                create_backup=True,
+                target_language='ko',
+                mode='multilang'  # 다국어 폴더 모드
+            )
+
+            if success:
+                backup_path = game_path / "data_languages" / "original"
+                QMessageBox.information(
+                    self,
+                    "적용 완료",
+                    f"✅ 번역이 게임에 적용되었습니다!\n\n"
+                    f"📊 적용된 항목: {len(translated_entries)}개\n"
+                    f"💾 백업 위치: {backup_path}\n"
+                    f"🌏 한국어 폴더: data_languages/ko/\n\n"
+                    f"게임을 실행하여 번역을 확인하세요!\n\n"
+                    f"※ 다국어 플러그인이 필요할 수 있습니다."
                 )
 
                 self.btn_apply.setEnabled(False)

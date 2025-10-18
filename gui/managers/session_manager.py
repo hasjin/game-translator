@@ -137,6 +137,11 @@ class SessionManagerMixin:
                 game_path = Path(session_data["last_input_path"])
                 self.input_path.setText(session_data["last_input_path"])
 
+                # UI 업데이트: 게임 형식 자동 감지 및 표시
+                if game_path.exists():
+                    self.detect_and_display_game_info(str(game_path))
+                    self.adjust_ui_for_game_type(str(game_path))
+
             # 게임 형식 검증 (게임 경로가 있는 경우)
             if game_path and game_path.exists():
                 from core.game_language_detector import GameLanguageDetector
