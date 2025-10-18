@@ -17,14 +17,15 @@ class BundlePacker:
         game_path: Path,
         target_language: str,
         translated_files: Dict[str, str],
-        create_backup: bool = True
+        create_backup: bool = True,
+        rpg_mode: str = 'replace'  # RPG Maker 전용: 'replace' or 'multilang'
     ):
         """번역을 게임에 적용
 
         Args:
             game_path: 게임 루트 폴더
             target_language: 대체할 언어 코드 (예: 'zh-Hans')
-            translated_files: {원본파일명: 번역파일경로} 딕셔너리
+            translated_files: {원본파일명: 번역파일경로} 딕셔너리 또는 번역 데이터 리스트
             create_backup: 백업 생성 여부
 
         Returns:
@@ -33,6 +34,34 @@ class BundlePacker:
         from core.game_language_detector import GameLanguageDetector
 
         detector = GameLanguageDetector()
+
+        # 게임 타입 감지
+        game_info = detector.detect_game_format(game_path)
+        game_type = game_info.get('game_type', 'unknown')
+
+        # RPG Maker 게임인 경우
+        if game_type == 'rpgmaker':
+            from core.rpgmaker_packer import RPGMakerPacker
+
+            print("[INFO] RPG Maker 게임 감지됨 - RPGMakerPacker 사용")
+            packer = RPGMakerPacker()
+
+            # translated_files가 리스트인 경우 (RPG Maker 형식)
+            if isinstance(translated_files, list):
+                # target_language가 없으면 기본값 'ko' 사용
+                lang_code = target_language if target_language else 'ko'
+                return packer.apply_translations(
+                    game_path=game_path,
+                    translated_data=translated_files,
+                    create_backup=create_backup,
+                    target_language=lang_code,
+                    mode=rpg_mode  # 'replace' or 'multilang'
+                )
+            else:
+                print("[ERROR] RPG Maker는 리스트 형식의 번역 데이터가 필요합니다")
+                return False
+
+        # Unity 게임인 경우 (기존 로직)
 
         # 대상 언어의 Bundle 파일 찾기
         target_bundles = detector.find_target_bundles(game_path, target_language)

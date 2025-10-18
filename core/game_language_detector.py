@@ -38,7 +38,7 @@ class GameLanguageDetector:
                 'details': str
             }
         """
-        print(f"🔍 게임 형식 감지 중: {game_path}")
+        print("[INFO] Detecting game format: " + str(game_path))
 
         result = {
             'is_naninovel': False,
@@ -58,10 +58,10 @@ class GameLanguageDetector:
         ]
 
         if all(marker.exists() for marker in rpgmaker_markers[:2]):  # Game.exe + data/
-            print("✅ RPG Maker 게임 감지됨")
+            print("[OK] RPG Maker game detected")
             result['game_type'] = 'rpgmaker'
             result['message'] = 'RPG Maker 게임 감지됨'
-            result['details'] = 'RPG Maker MV/MZ 게임입니다.'
+            result['details'] = self._analyze_rpgmaker_game(game_path)
             return result
 
         # StreamingAssets 폴더 확인
@@ -166,6 +166,52 @@ class GameLanguageDetector:
                 chapter_files.append(file)
 
         return len(chapter_files) > 1
+
+    def _analyze_rpgmaker_game(self, game_path: Path) -> str:
+        """RPG Maker 게임 상세 분석"""
+        details = []
+
+        details.append("[OK] RPG Maker MV/MZ Game Translation Available")
+        details.append("\n[Structure Analysis]")
+
+        data_folder = game_path / "data"
+
+        # Language detection
+        from core.rpgmaker_language_detector import RPGMakerLanguageDetector
+        lang_detector = RPGMakerLanguageDetector()
+        lang_info = lang_detector.detect_language(game_path)
+
+        details.append(f"  [O] Original Language: {lang_info['language']} ({lang_info['locale']})")
+        if lang_info['game_title']:
+            details.append(f"  [O] Game Title: {lang_info['game_title']}")
+        if lang_info['currency']:
+            details.append(f"  [O] Currency: {lang_info['currency']}")
+
+        # Map file count
+        map_files = list(data_folder.glob("Map*.json"))
+        map_files = [f for f in map_files if f.stem != 'MapInfos']
+        details.append(f"  [O] Map Files: {len(map_files)} files")
+
+        # CommonEvents check
+        if (data_folder / "CommonEvents.json").exists():
+            details.append("  [O] CommonEvents.json found")
+
+        # System.json check
+        if (data_folder / "System.json").exists():
+            details.append("  [O] System.json found")
+
+        details.append("\n[Translation Method]")
+        details.append("  1. Auto-extract dialogues from data/ folder")
+        details.append("  2. AI translation (Claude/DeepL/Google Translate)")
+        details.append("  3. Apply translated text to JSON files")
+        details.append("  4. Auto-backup creation")
+
+        details.append("\n[Notes]")
+        details.append("  - Original data/ folder will be modified")
+        details.append("  - Always backup before proceeding (auto-backed up)")
+        details.append("  - Verify dialogues after applying translation")
+
+        return '\n'.join(details)
 
     def _analyze_non_naninovel_game(self, game_path: Path) -> str:
         """비Naninovel 게임 상세 분석"""

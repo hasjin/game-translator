@@ -95,6 +95,9 @@ class MainWindow(ArchiveHandlerMixin, ExcelHandlerMixin, SessionManagerMixin, Pr
             # 게임 이름 자동 감지 및 프로젝트 생성/선택
             self.auto_create_or_select_project(folder)
 
+            # RPG Maker인 경우 UI 조정
+            self.adjust_ui_for_game_type(folder)
+
     def detect_and_display_game_info(self, folder_path):
         """게임 형식 자동 감지 및 표시"""
         from pathlib import Path
@@ -131,9 +134,46 @@ class MainWindow(ArchiveHandlerMixin, ExcelHandlerMixin, SessionManagerMixin, Pr
                     "padding: 10px; background: #f8d7da; border-radius: 4px; color: #721c24; border: 1px solid #f5c6cb;"
                 )
 
+    def adjust_ui_for_game_type(self, folder_path):
+        """게임 형식에 따라 UI 조정 (RPG Maker는 언어 감지 UI 숨김)"""
+        from pathlib import Path
+        from core.game_language_detector import GameLanguageDetector
 
+        game_path = Path(folder_path)
+        detector = GameLanguageDetector()
+        format_info = detector.detect_game_format(game_path)
+        game_type = format_info.get('game_type', 'unknown')
 
+        if game_type == 'rpgmaker':
+            # RPG Maker: 언어 감지 UI 숨기기
+            if hasattr(self, 'replace_lang_group'):
+                self.replace_lang_group.setVisible(False)
+                print(f"[INFO] RPG Maker game detected - language detection UI hidden")
+            else:
+                print("[WARNING] replace_lang_group not found - UI element not created yet")
 
+            # 원본 언어 자동 감지 및 표시
+            from core.rpgmaker_language_detector import RPGMakerLanguageDetector
+            rpg_detector = RPGMakerLanguageDetector()
+            lang_info = rpg_detector.detect_language(game_path)
+
+            # 게임 정보 레이블에 언어 정보 추가
+            current_text = self.game_info_label.text()
+            lang_text = (
+                f"\n\n[O] Original Language: {lang_info['language']} ({lang_info['locale']})"
+            )
+            if lang_info.get('game_title'):
+                lang_text += f"\n[O] Game Title: {lang_info['game_title']}"
+
+            self.game_info_label.setText(current_text + lang_text)
+            print(f"[INFO] Original language: {lang_info['language']} ({lang_info['locale']})")
+        else:
+            # Unity 등 다른 게임: 언어 감지 UI 표시
+            if hasattr(self, 'replace_lang_group'):
+                self.replace_lang_group.setVisible(True)
+                print(f"[INFO] {game_type} game detected - language detection UI shown")
+            else:
+                print("[WARNING] replace_lang_group not found - UI element not created yet")
 
     def detect_chapters(self):
         """챕터 감지 및 UI 업데이트 (Naninovel 전용)"""
@@ -237,7 +277,7 @@ class MainWindow(ArchiveHandlerMixin, ExcelHandlerMixin, SessionManagerMixin, Pr
         if not chapter_patterns:
             # 챕터 감지가 지원되지 않는 게임 (RPG Maker, Unity 등)
             # 조용히 반환 (경고 메시지 없음)
-            print(f"ℹ️ 챕터 구분이 없는 게임입니다. (총 {len(files_to_analyze)}개 파일)")
+            print(f"[INFO] No chapter structure found. Total {len(files_to_analyze)} files")
             return
 
         # 챕터 선택 다이얼로그 표시
@@ -303,6 +343,38 @@ class MainWindow(ArchiveHandlerMixin, ExcelHandlerMixin, SessionManagerMixin, Pr
         if not input_dir:
             QMessageBox.warning(self, "경고", "입력 폴더를 선택하세요!")
             return
+
+        # RPG Maker 게임인 경우 한국어 존재 여부 확인
+        from core.game_language_detector import GameLanguageDetector
+        game_path = Path(input_dir)
+        detector = GameLanguageDetector()
+        format_info = detector.detect_game_format(game_path)
+        game_type = format_info.get('game_type', 'unknown')
+
+        if game_type == 'rpgmaker':
+            # 한국어가 이미 있는지 확인
+            from core.rpgmaker_language_detector import RPGMakerLanguageDetector
+            rpg_detector = RPGMakerLanguageDetector()
+            multilang_info = rpg_detector.check_multilang_support(game_path)
+
+            if 'ko' in multilang_info['available_languages']:
+                # 한국어가 이미 존재하는 경우 확인
+                reply = QMessageBox.question(
+                    self,
+                    "Korean translation already exists",
+                    f"[!] Korean translation already exists in this game.\n\n"
+                    f"Available languages: {', '.join(multilang_info['available_languages'])}\n\n"
+                    f"Do you want to overwrite the existing Korean translation?\n\n"
+                    f"[Yes] Overwrite existing Korean translation\n"
+                    f"[No] Cancel translation",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
+
+                if reply != QMessageBox.StandardButton.Yes:
+                    print("[INFO] User cancelled translation - Korean already exists")
+                    return
+
+                print("[INFO] User confirmed overwriting existing Korean translation")
 
         # 미리보기 모드: 프로젝트 폴더 내의 preview 폴더 사용
         preview_dir = str(self.current_project / "preview")
@@ -403,23 +475,23 @@ class MainWindow(ArchiveHandlerMixin, ExcelHandlerMixin, SessionManagerMixin, Pr
         # 적용 버튼 활성화
         self.btn_apply.setEnabled(True)
 
-        # 상태 라벨 업데이트
-        if self.last_translation_output:
-            status_text = (
-                f"✅ 번역 완료 (미리보기)!\n\n"
-                f"입력: {self.last_translation_input}\n"
-                f"미리보기: {self.last_translation_output}\n"
-                f"번역 항목: {len(translation_entries)}개\n\n"
-            )
-            if cost_info["total_cost"] > 0:
-                status_text += f"{cost_message}\n\n"
-            status_text += "✅ '게임에 적용하기' 버튼을 눌러 게임에 반영하세요.\n"
-            status_text += "📊 Excel 탭에서 검수할 수 있습니다."
-
-            self.translation_status_label.setText(status_text)
-            self.translation_status_label.setStyleSheet(
-                "padding: 10px; background: #d4edda; border-radius: 4px; color: #155724;"
-            )
+        # 상태 라벨 업데이트 (translation_status_label이 없어서 주석 처리)
+        # if self.last_translation_output:
+        #     status_text = (
+        #         f"✅ 번역 완료 (미리보기)!\n\n"
+        #         f"입력: {self.last_translation_input}\n"
+        #         f"미리보기: {self.last_translation_output}\n"
+        #         f"번역 항목: {len(translation_entries)}개\n\n"
+        #     )
+        #     if cost_info["total_cost"] > 0:
+        #         status_text += f"{cost_message}\n\n"
+        #     status_text += "✅ '게임에 적용하기' 버튼을 눌러 게임에 반영하세요.\n"
+        #     status_text += "📊 Excel 탭에서 검수할 수 있습니다."
+        #
+        #     self.translation_status_label.setText(status_text)
+        #     self.translation_status_label.setStyleSheet(
+        #         "padding: 10px; background: #d4edda; border-radius: 4px; color: #155724;"
+        #     )
 
         # 완료 메시지 박스
         full_message = message
@@ -490,10 +562,39 @@ class MainWindow(ArchiveHandlerMixin, ExcelHandlerMixin, SessionManagerMixin, Pr
 
             detector = GameLanguageDetector()
 
+            # 게임 타입 먼저 확인
+            format_info = detector.detect_game_format(game_path)
+            game_type = format_info.get('game_type', 'unknown')
+
             # 디버깅: StreamingAssets 폴더 확인
-            print(f"🔍 게임 경로: {game_path}")
+            print(f"[INFO] Game path: {game_path}")
             streaming_folders = list(game_path.glob("*_Data/StreamingAssets"))
-            print(f"🔍 StreamingAssets 폴더: {streaming_folders}")
+            print(f"[INFO] StreamingAssets folders: {streaming_folders}")
+
+            # RPG Maker 게임인 경우 특별 처리
+            if game_type == 'rpgmaker':
+                # 언어 정보 감지
+                from core.rpgmaker_language_detector import RPGMakerLanguageDetector
+                rpg_detector = RPGMakerLanguageDetector()
+                lang_info = rpg_detector.detect_language(game_path)
+
+                info_msg = "RPG Maker Game Translation\n\n"
+                info_msg += f"[O] Original Language: {lang_info['language']} ({lang_info['locale']})\n"
+                if lang_info['game_title']:
+                    info_msg += f"[O] Game Title: {lang_info['game_title']}\n"
+                info_msg += f"\nTranslation will be ADDED (not replaced)\n"
+                info_msg += f"Target: Korean (ko) in data_languages/ko/\n\n"
+                info_msg += "Folder Structure:\n"
+                info_msg += "  - data_languages/original/ (original backup)\n"
+                info_msg += "  - data_languages/ko/ (Korean)\n"
+                info_msg += "  - data_languages/en/ (English)\n\n"
+                info_msg += "You can switch languages with multilingual plugin."
+
+                self.detected_lang_label.setText(info_msg)
+                self.detected_lang_label.setVisible(True)
+
+                # RPG Maker는 언어 선택 불필요
+                return
 
             if streaming_folders:
                 for folder in streaming_folders:
@@ -505,7 +606,7 @@ class MainWindow(ArchiveHandlerMixin, ExcelHandlerMixin, SessionManagerMixin, Pr
                             print(f"    - {f.name} (확장자: {f.suffix or '없음'})")
 
             languages = detector.detect_languages(game_path)
-            print(f"🔍 감지된 언어: {len(languages)}개")
+            print(f"[INFO] Detected languages: {len(languages)}")
 
             if not languages:
                 error_msg = "❌ 게임에서 언어 파일을 찾을 수 없습니다.\n\n"
@@ -860,9 +961,9 @@ class MainWindow(ArchiveHandlerMixin, ExcelHandlerMixin, SessionManagerMixin, Pr
 
                 # fallback 파일을 복사하여 설정 파일 생성
                 shutil.copy2(fallback_path, file_path)
-                print(f"✅ 초기 설정 파일 생성: {file_path} (from {fallback_path})")
+                print(f"[OK] Initial config file created: {file_path} (from {fallback_path})")
             except Exception as e:
-                print(f"⚠️ 초기 설정 파일 생성 실패: {e}")
+                print(f"[WARNING] Failed to create initial config file: {e}")
 
         # 파일 읽기
         if file_path.exists():
@@ -1041,7 +1142,7 @@ class MainWindow(ArchiveHandlerMixin, ExcelHandlerMixin, SessionManagerMixin, Pr
             use_quality=self.enable_quality.isChecked(),
             include_font=self.include_font_info.isChecked()
         )
-        print("✅ 설정 저장됨")
+        print("[OK] Settings saved")
 
 
 def main():

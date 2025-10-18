@@ -119,10 +119,10 @@ class TabBuilderMixin:
 
         layout.addWidget(lang_group)
 
-        # 게임 내 대체할 언어 선택
-        replace_lang_group = QGroupBox("🔄 게임에 적용할 언어 (어떤 언어를 대체할지)")
+        # 게임 내 대체할 언어 선택 (Unity 전용 - RPG Maker는 숨김)
+        self.replace_lang_group = QGroupBox("🔄 게임에 적용할 언어 (어떤 언어를 대체할지)")
         replace_layout = QVBoxLayout()
-        replace_lang_group.setLayout(replace_layout)
+        self.replace_lang_group.setLayout(replace_layout)
 
         info_label = QLabel(
             "💡 번역한 파일을 게임 패키지의 어떤 언어로 교체할지 선택하세요.\n"
@@ -168,7 +168,7 @@ class TabBuilderMixin:
         self.detected_lang_label.setVisible(False)
         replace_layout.addWidget(self.detected_lang_label)
 
-        layout.addWidget(replace_lang_group)
+        layout.addWidget(self.replace_lang_group)
 
         # 번역 엔진 선택
         engine_group = QGroupBox("🤖 번역 엔진")

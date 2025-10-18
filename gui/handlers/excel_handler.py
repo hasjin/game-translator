@@ -571,3 +571,219 @@ class ExcelHandlerMixin:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
         print(f"✅ JSON 파일 업데이트 완료: {modified_count}개 항목 수정됨")
+
+
+    def apply_translation_to_game(self):
+        """번역을 실제 게임에 적용"""
+        if not self.translation_entries:
+            QMessageBox.warning(
+                self,
+                "경고",
+                "번역 결과가 없습니다!\n\n먼저 번역을 실행하세요."
+            )
+            return
+
+        if not self.last_translation_output:
+            QMessageBox.warning(
+                self,
+                "경고",
+                "출력 폴더를 찾을 수 없습니다."
+            )
+            return
+
+        # 게임 경로 확인
+        game_path = None
+        if self.current_project:
+            # settings.json에서 game_path 읽기
+            settings_file = self.current_project / "settings.json"
+            if settings_file.exists():
+                try:
+                    import json
+                    with open(settings_file, 'r', encoding='utf-8') as f:
+                        settings = json.load(f)
+                    game_path = Path(settings.get('input_dir', ''))
+                except:
+                    pass
+
+        if not game_path or not game_path.exists():
+            QMessageBox.warning(
+                self,
+                "경고",
+                "게임 경로를 찾을 수 없습니다.\n\n프로젝트 설정을 확인하세요."
+            )
+            return
+
+        # 게임 타입 먼저 감지
+        from core.game_language_detector import GameLanguageDetector
+        detector = GameLanguageDetector()
+        game_info = detector.detect_game_format(game_path)
+        game_type = game_info.get('game_type', 'unknown')
+
+        # RPG Maker인 경우 모드 선택 및 언어 정보 표시
+        rpg_mode = 'replace'  # 기본값
+        if game_type == 'rpgmaker':
+            from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QRadioButton, QDialogButtonBox
+            from core.rpgmaker_language_detector import RPGMakerLanguageDetector
+
+            # 언어 정보 감지
+            rpg_detector = RPGMakerLanguageDetector()
+            lang_info = rpg_detector.detect_language(game_path)
+
+            mode_dialog = QDialog(self)
+            mode_dialog.setWindowTitle("RPG Maker Translation Application")
+            layout = QVBoxLayout()
+
+            # 언어 정보 표시
+            lang_label = QLabel(
+                f"[O] Original Language: {lang_info['language']} ({lang_info['locale']})\n"
+                f"[O] Target Language: Korean (ko)\n"
+            )
+            lang_label.setStyleSheet("font-weight: bold; color: #2c3e50; padding: 10px; background: #ecf0f1; border-radius: 4px;")
+            layout.addWidget(lang_label)
+
+            layout.addWidget(QLabel("\nHow to apply translation?\n"))
+
+            replace_radio = QRadioButton("Replace Original (Simple, Recommended)")
+            replace_radio.setChecked(True)
+            replace_info = QLabel(
+                "  [O] Direct modification of data/ folder\n"
+                "  [O] No plugin required\n"
+                "  [O] Game executable immediately\n"
+                "  [O] Auto-backup created\n"
+                "  [X] Cannot switch languages"
+            )
+            replace_info.setStyleSheet("color: #555; padding-left: 20px;")
+
+            multilang_radio = QRadioButton("Multilingual Folder (Advanced)")
+            multilang_info = QLabel(
+                "  [O] Keep original data/ folder\n"
+                "  [O] Support multiple languages\n"
+                "  [O] Can switch languages\n"
+                "  [X] Multilingual plugin required\n"
+                "  [X] Folder structure: data_languages/ko/"
+            )
+            multilang_info.setStyleSheet("color: #555; padding-left: 20px;")
+
+            layout.addWidget(replace_radio)
+            layout.addWidget(replace_info)
+            layout.addWidget(QLabel(""))
+            layout.addWidget(multilang_radio)
+            layout.addWidget(multilang_info)
+
+            buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+            buttons.accepted.connect(mode_dialog.accept)
+            buttons.rejected.connect(mode_dialog.reject)
+            layout.addWidget(buttons)
+
+            mode_dialog.setLayout(layout)
+
+            if mode_dialog.exec() == QDialog.DialogCode.Accepted:
+                rpg_mode = 'replace' if replace_radio.isChecked() else 'multilang'
+            else:
+                return  # Canceled
+
+        # 사용자 확인
+        confirm_msg = f"⚠️ 게임 파일을 수정합니다!\n\n"
+        confirm_msg += f"📁 게임 경로: {game_path}\n"
+        confirm_msg += f"📊 번역 항목: {len(self.translation_entries)}개\n"
+
+        if game_type == 'rpgmaker':
+            if rpg_mode == 'replace':
+                confirm_msg += f"\n💾 모드: 원본 교체\n"
+                confirm_msg += f"📂 수정 위치: data/ 폴더\n"
+            else:
+                confirm_msg += f"\n💾 모드: 다국어 폴더\n"
+                confirm_msg += f"📂 생성 위치: data_languages/ko/\n"
+
+        confirm_msg += f"\n자동 백업이 생성됩니다.\n"
+        confirm_msg += f"계속하시겠습니까?"
+
+        reply = QMessageBox.question(
+            self,
+            "게임에 적용",
+            confirm_msg,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            from core.bundle_packer import BundlePacker
+            from core.game_language_detector import GameLanguageDetector
+
+            # 게임 타입 감지
+            detector = GameLanguageDetector()
+            game_info = detector.detect_game_format(game_path)
+            game_type = game_info.get('game_type', 'unknown')
+
+            print(f"🎮 게임 타입: {game_type}")
+
+            # BundlePacker 사용 (자동으로 RPG Maker/Unity 분기 처리)
+            packer = BundlePacker()
+
+            # RPG Maker는 list 형식, Unity는 dict 형식
+            if game_type == 'rpgmaker':
+                # translation_entries를 그대로 전달 (list 형식)
+                # rpg_mode는 위에서 선택됨
+                success = packer.apply_translations(
+                    game_path=game_path,
+                    target_language='ko',  # 한국어
+                    translated_files=self.translation_entries,
+                    create_backup=True,
+                    rpg_mode=rpg_mode  # 'replace' or 'multilang'
+                )
+            else:
+                # Unity: 번역 파일 경로 딕셔너리 생성
+                output_dir = Path(self.last_translation_output)
+                translated_files = {}
+
+                # JSON 파일 확인
+                json_file = output_dir / "extracted_translated.json"
+                if json_file.exists():
+                    # JSON 파일에서 번역된 텍스트 로드
+                    import json
+                    with open(json_file, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+
+                    # Unity 형식으로 변환
+                    if isinstance(data, dict) and 'entries' in data:
+                        for entry in data.get('entries', []):
+                            file_name = entry['context'].get('file', 'unknown')
+                            if file_name not in translated_files:
+                                translated_files[file_name] = str(output_dir / f"{file_name}.txt")
+
+                target_language = getattr(self, 'last_target_language', 'zh-Hans')
+                success = packer.apply_translations(
+                    game_path=game_path,
+                    target_language=target_language,
+                    translated_files=translated_files,
+                    create_backup=True
+                )
+
+            if success:
+                backup_msg = ""
+                if packer.backup_dir:
+                    backup_msg = f"\n💾 백업 위치: {packer.backup_dir}"
+
+                QMessageBox.information(
+                    self,
+                    "완료",
+                    f"✅ 게임에 번역 적용 완료!\n\n"
+                    f"🎮 게임을 실행하여 번역을 확인하세요.{backup_msg}\n\n"
+                    f"💡 문제가 있으면 백업 폴더에서 복원할 수 있습니다."
+                )
+            else:
+                QMessageBox.warning(
+                    self,
+                    "경고",
+                    "번역 적용 중 오류가 발생했습니다.\n\n로그를 확인하세요."
+                )
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "오류",
+                f"게임 적용 실패:\n{str(e)}\n\n{traceback.format_exc()}"
+            )
+
