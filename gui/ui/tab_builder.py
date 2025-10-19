@@ -262,9 +262,14 @@ class TabBuilderMixin:
                 background-color: #0056b3;
             }
         """)
-        layout.addWidget(btn_translate)
+        # 번역 실행 버튼 라인
+        translate_layout = QHBoxLayout()
+        translate_layout.addWidget(btn_translate)
+        layout.addLayout(translate_layout)
 
-        # 적용 버튼
+        # 적용 버튼 라인 (번역 + RPG Maker 전용)
+        apply_layout = QHBoxLayout()
+
         self.btn_apply = QPushButton("✅ 게임에 적용하기")
         self.btn_apply.setFont(QFont("맑은 고딕", 12, QFont.Weight.Bold))
         self.btn_apply.setMinimumHeight(50)
@@ -284,7 +289,45 @@ class TabBuilderMixin:
                 color: #666666;
             }
         """)
-        layout.addWidget(self.btn_apply)
+        apply_layout.addWidget(self.btn_apply, 2)  # 2배 너비
+
+        # RPG Maker 전용: 플러그인 설치
+        self.btn_install_plugin = QPushButton("🔌 플러그인 설치")
+        self.btn_install_plugin.setFont(QFont("맑은 고딕", 10, QFont.Weight.Bold))
+        self.btn_install_plugin.setMinimumHeight(50)
+        self.btn_install_plugin.clicked.connect(self.install_rpgmaker_plugin)
+        self.btn_install_plugin.setVisible(False)  # 초기에는 숨김
+        self.btn_install_plugin.setStyleSheet("""
+            QPushButton {
+                background-color: #6f42c1;
+                color: white;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #5a32a3;
+            }
+        """)
+        apply_layout.addWidget(self.btn_install_plugin, 1)  # 1배 너비
+
+        # RPG Maker 전용: 패치 내보내기
+        self.btn_export_patch = QPushButton("📦 패치 내보내기")
+        self.btn_export_patch.setFont(QFont("맑은 고딕", 10, QFont.Weight.Bold))
+        self.btn_export_patch.setMinimumHeight(50)
+        self.btn_export_patch.clicked.connect(self.export_translation_patch)
+        self.btn_export_patch.setVisible(False)  # 초기에는 숨김
+        self.btn_export_patch.setStyleSheet("""
+            QPushButton {
+                background-color: #17a2b8;
+                color: white;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #138496;
+            }
+        """)
+        apply_layout.addWidget(self.btn_export_patch, 1)  # 1배 너비
+
+        layout.addLayout(apply_layout)
 
         return tab
 

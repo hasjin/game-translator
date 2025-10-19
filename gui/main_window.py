@@ -153,6 +153,14 @@ class MainWindow(ArchiveHandlerMixin, ExcelHandlerMixin, SessionManagerMixin, Pr
             else:
                 print("[WARNING] replace_lang_group not found - UI element not created yet")
 
+            # RPG Maker 전용 버튼들 표시
+            if hasattr(self, 'btn_install_plugin'):
+                self.btn_install_plugin.setVisible(True)
+                print(f"[INFO] RPG Maker plugin install button shown")
+            if hasattr(self, 'btn_export_patch'):
+                self.btn_export_patch.setVisible(True)
+                print(f"[INFO] RPG Maker export patch button shown")
+
             # 원본 언어 자동 감지 및 표시
             from core.rpgmaker_language_detector import RPGMakerLanguageDetector
             rpg_detector = RPGMakerLanguageDetector()
@@ -169,12 +177,19 @@ class MainWindow(ArchiveHandlerMixin, ExcelHandlerMixin, SessionManagerMixin, Pr
             self.game_info_label.setText(current_text + lang_text)
             print(f"[INFO] Original language: {lang_info['language']} ({lang_info['locale']})")
         else:
-            # Unity 등 다른 게임: 언어 감지 UI 표시
+            # Unity 등 다른 게임: 언어 감지 UI 표시, 플러그인 버튼 숨김
             if hasattr(self, 'replace_lang_group'):
                 self.replace_lang_group.setVisible(True)
                 print(f"[INFO] {game_type} game detected - language detection UI shown")
             else:
                 print("[WARNING] replace_lang_group not found - UI element not created yet")
+
+            if hasattr(self, 'btn_install_plugin'):
+                self.btn_install_plugin.setVisible(False)
+                print(f"[INFO] Plugin install button hidden (not RPG Maker)")
+            if hasattr(self, 'btn_export_patch'):
+                self.btn_export_patch.setVisible(False)
+                print(f"[INFO] Export patch button hidden (not RPG Maker)")
 
     def detect_chapters(self):
         """챕터 감지 및 UI 업데이트 (Naninovel 전용)"""
@@ -1257,6 +1272,242 @@ class MainWindow(ArchiveHandlerMixin, ExcelHandlerMixin, SessionManagerMixin, Pr
             include_font=self.include_font_info.isChecked()
         )
         print("[OK] Settings saved")
+
+    def install_rpgmaker_plugin(self):
+        """RPG Maker 다국어 플러그인 설치"""
+        from pathlib import Path
+        from core.rpgmaker_plugin_installer import RPGMakerPluginInstaller
+
+        # 게임 경로 확인
+        game_path = self.input_path.text()
+        if not game_path:
+            QMessageBox.warning(self, "경고", "게임 폴더를 먼저 선택하세요!")
+            return
+
+        game_path = Path(game_path)
+
+        # 인스톨러 생성
+        installer = RPGMakerPluginInstaller()
+
+        # 1단계: 현재 상태 확인
+        status = installer.check_translation_status(game_path)
+
+        # data_languages 폴더 없으면 중단
+        if not status['data_languages_exists']:
+            QMessageBox.warning(
+                self,
+                "플러그인 설치 불가",
+                "❌ data_languages 폴더가 없습니다.\n\n"
+                "먼저 '게임에 적용하기'를 실행하여 번역 파일을 생성하세요."
+            )
+            return
+
+        # 2단계: 경고 메시지가 있으면 사용자에게 확인
+        if status['warning_message'] and status['needs_plugin']:
+            reply = QMessageBox.question(
+                self,
+                "플러그인 설치 확인",
+                f"{status['warning_message']}\n계속 설치하시겠습니까?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes
+            )
+
+            if reply == QMessageBox.StandardButton.No:
+                return
+
+        # 3단계: 플러그인 이미 설치되어 있으면 재설치 확인
+        if status['plugin_installed'] and status['plugin_enabled']:
+            reply = QMessageBox.question(
+                self,
+                "플러그인 재설치",
+                "⚠️ 플러그인이 이미 설치되어 있습니다.\n\n"
+                "재설치하시겠습니까? (기존 설정이 백업됩니다)",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+
+            if reply == QMessageBox.StandardButton.No:
+                return
+
+        # 4단계: 사용 가능한 언어 목록 생성
+        available_langs = status.get('other_languages', [])
+        if not available_langs:
+            available_langs = ['ko']
+        elif 'ko' not in available_langs:
+            available_langs.append('ko')
+
+        # original이 없으면 추가
+        if 'original' not in available_langs:
+            available_langs.insert(0, 'original')
+
+        available_langs_str = ','.join(available_langs)
+
+        # 5단계: 플러그인 설치 (force=True)
+        success, message, install_status = installer.install_plugin(
+            game_path,
+            default_language='ko',
+            available_languages=available_langs_str,
+            force=True
+        )
+
+        if success:
+            # 6단계: 한글 폰트 다운로드 제안
+            if not status['font_installed']:
+                reply = QMessageBox.question(
+                    self,
+                    "한글 폰트 다운로드",
+                    message + "\n\n" +
+                    "⚠️ 한글 폰트가 설치되지 않았습니다.\n"
+                    "지금 Noto Sans CJK KR 폰트를 다운로드하시겠습니까?\n\n"
+                    "(인터넷 연결 필요, 약 10MB)",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes
+                )
+
+                if reply == QMessageBox.StandardButton.Yes:
+                    font_success, font_msg = installer.download_korean_font(game_path)
+                    if font_success:
+                        QMessageBox.information(
+                            self,
+                            "완료",
+                            "✅ 플러그인 및 폰트 설치 완료!\n\n"
+                            "이제 게임을 실행하면 한국어로 표시됩니다.\n"
+                            "옵션 메뉴에서 언어를 전환할 수 있습니다."
+                        )
+                    else:
+                        QMessageBox.warning(
+                            self,
+                            "폰트 다운로드 실패",
+                            f"폰트 다운로드 실패:\n{font_msg}\n\n"
+                            "수동으로 Noto Sans CJK KR 폰트를 다운로드하여\n"
+                            "게임폴더/fonts/ 에 복사하세요."
+                        )
+            else:
+                QMessageBox.information(
+                    self,
+                    "설치 완료",
+                    message + "\n\n"
+                    "이제 게임을 실행하면 한국어로 표시됩니다.\n"
+                    "옵션 메뉴에서 언어를 전환할 수 있습니다."
+                )
+        else:
+            QMessageBox.critical(
+                self,
+                "설치 실패",
+                f"플러그인 설치 실패:\n\n{message}"
+            )
+
+    def export_translation_patch(self):
+        """번역 패치 내보내기"""
+        from pathlib import Path
+        from core.patch_exporter import PatchExporter
+        from PyQt6.QtWidgets import QFileDialog
+
+        # 게임 경로 확인
+        game_path = self.input_path.text()
+        if not game_path:
+            QMessageBox.warning(self, "경고", "게임 폴더를 먼저 선택하세요!")
+            return
+
+        game_path = Path(game_path)
+
+        # data_languages 폴더 확인
+        data_languages = game_path / "data_languages"
+        if not data_languages.exists():
+            QMessageBox.warning(
+                self,
+                "패치 내보내기 불가",
+                "❌ data_languages 폴더가 없습니다.\n\n"
+                "먼저 '게임에 적용하기'를 실행하여 번역 파일을 생성하세요."
+            )
+            return
+
+        # 출력 폴더 선택
+        output_dir = QFileDialog.getExistingDirectory(
+            self,
+            "패치 내보내기 위치 선택",
+            str(Path.home() / "Desktop"),
+            QFileDialog.Option.ShowDirsOnly
+        )
+
+        if not output_dir:
+            return
+
+        # 패치 내보내기
+        exporter = PatchExporter()
+
+        # 패치 이름 입력 받기
+        from PyQt6.QtWidgets import QInputDialog
+        from datetime import datetime
+
+        default_name = f"translation_patch_{datetime.now().strftime('%Y%m%d')}"
+        patch_name, ok = QInputDialog.getText(
+            self,
+            "패치 이름 입력",
+            "패치 폴더 이름을 입력하세요:",
+            text=default_name
+        )
+
+        if not ok or not patch_name:
+            patch_name = default_name
+
+        # 진행 다이얼로그 표시
+        from PyQt6.QtWidgets import QProgressDialog
+        from PyQt6.QtCore import Qt
+
+        progress = QProgressDialog("패치 파일 생성 중...", None, 0, 0, self)
+        progress.setWindowTitle("패치 내보내기")
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.setValue(0)
+        progress.show()
+        QApplication.processEvents()
+
+        try:
+            success, message, status = exporter.export_patch(
+                game_path,
+                Path(output_dir),
+                patch_name
+            )
+
+            progress.close()
+
+            if success:
+                # 성공 메시지와 함께 폴더 열기 옵션
+                reply = QMessageBox.question(
+                    self,
+                    "패치 내보내기 완료",
+                    message + "\n\n패치 폴더를 열어보시겠습니까?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes
+                )
+
+                if reply == QMessageBox.StandardButton.Yes:
+                    import subprocess
+                    import platform
+
+                    patch_dir = status['patch_dir']
+                    if platform.system() == 'Windows':
+                        subprocess.run(['explorer', patch_dir])
+                    elif platform.system() == 'Darwin':  # macOS
+                        subprocess.run(['open', patch_dir])
+                    else:  # Linux
+                        subprocess.run(['xdg-open', patch_dir])
+
+            else:
+                QMessageBox.critical(
+                    self,
+                    "패치 내보내기 실패",
+                    f"패치 내보내기 실패:\n\n{message}"
+                )
+
+        except Exception as e:
+            progress.close()
+            QMessageBox.critical(
+                self,
+                "오류 발생",
+                f"패치 내보내기 중 오류 발생:\n\n{str(e)}"
+            )
 
 
 def main():

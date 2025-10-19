@@ -11,9 +11,12 @@
 - **게임 적용**: 번역을 게임에 자동 패키징 및 교체
 - **번역 메모리**: 중복 번역 방지 및 일관성 유지
 - **품질 관리**: 번역 규칙 및 용어집 관리
+- **🆕 RPG Maker 다국어 플러그인**: 게임 내 언어 전환 + 패치 배포 기능
 
 ### 🎮 지원하는 게임
 - **RPG Maker MV/MZ**: 완벽 지원 ✅
+  - 🆕 **다국어 플러그인**: 게임 내 언어 전환 (일본어/한국어/영어/중국어)
+  - 🆕 **패치 내보내기**: 배포용 패치 생성 (BAT 자동 설치 포함)
 - **Unity 게임** (Naninovel): 지원 ✅
 - **일반 Unity 게임**: 기본 지원 ✅
 - **Ren'Py**: 향후 지원 예정 🔜
@@ -114,8 +117,25 @@ python gui/main_window.py
 > **RPG Maker**: JSON 파일 직접 교체
 > **Unity/Naninovel**: Asset Bundle 또는 스크립트 교체
 
-### 5️⃣ 게임 실행
-- **RPG Maker**: 게임 실행 → 한국어로 표시
+### 5️⃣ RPG Maker 전용 - 다국어 플러그인 설치 (선택사항)
+번역된 게임에서 언어를 자유롭게 전환하고 싶다면:
+
+1. **"🔌 플러그인 설치"** 클릭
+2. SimpleLanguage 플러그인 자동 설치
+3. 게임 실행 → 타이틀 화면에 "Language / 언어" 메뉴 추가
+4. 옵션 메뉴에서 언어 전환 가능 (일본어 ⇄ 한국어 ⇄ 영어 ⇄ 중국어)
+
+**패치 배포하기:**
+1. **"📦 패치 내보내기"** 클릭
+2. 패치 폴더 생성 (data_languages + SimpleLanguage.js + BAT 설치 파일)
+3. 다른 사용자에게 배포 가능
+4. 받는 사람은 `INSTALL_PATCH_KO.bat` 실행만 하면 자동 설치
+
+> **참고**: 플러그인을 설치하지 않아도 게임은 번역된 언어로 정상 작동합니다.
+> 플러그인은 게임 내에서 여러 언어를 전환하고 싶을 때만 사용하세요.
+
+### 6️⃣ 게임 실행
+- **RPG Maker**: 게임 실행 → 한국어로 표시 (플러그인 설치 시 언어 전환 가능)
 - **Unity (Naninovel)**: 게임 설정에서 대체한 언어 선택
 - **Steam 게임**: 게임 속성 → 언어를 대체한 언어로 설정
 
@@ -127,7 +147,7 @@ python gui/main_window.py
 
 | 게임 형식 | 지원 여부 | 추출 방식 | 비고 |
 |----------|---------|----------|------|
-| **RPG Maker MV/MZ** | ✅ 완벽 지원 | JSON 파일 (Map*.json, CommonEvents.json 등) | 이벤트 대사, 선택지, 화자명, 시스템 메시지 |
+| **RPG Maker MV/MZ** | ✅ 완벽 지원 | JSON 파일 (Map*.json, CommonEvents.json 등) | 이벤트 대사, 선택지, 화자명, 시스템 메시지<br>🆕 **다국어 플러그인**: 게임 내 언어 전환 |
 | **Unity (Naninovel)** | ✅ 지원 | .nani 스크립트 파일 | 대사, 주석, 언어별 폴더 |
 | **일반 Unity 게임** | ✅ 기본 지원 | UnityPy (data.unity3d, .assets) | TextAsset 교체 방식 |
 | **Ren'Py** | 🔜 향후 지원 | - | - |
@@ -224,6 +244,8 @@ gametranslator/
 ├── core/                      # 핵심 번역 엔진
 │   ├── translator.py          # AI 번역 엔진 (민감한 단어 처리)
 │   ├── rpgmaker_extractor.py  # RPG Maker JSON 추출
+│   ├── rpgmaker_plugin_installer.py  # 🆕 RPG Maker 다국어 플러그인 설치
+│   ├── patch_exporter.py      # 🆕 번역 패치 내보내기 (BAT 포함)
 │   ├── excel_manager.py       # Excel 검수 관리
 │   ├── game_language_detector.py  # 게임 형식 감지
 │   ├── korean_particle_fixer.py   # 한국어 조사 교정

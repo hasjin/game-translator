@@ -76,9 +76,19 @@ class RPGMakerPacker:
                     files_to_update[file_name] = []
                 files_to_update[file_name].append(item)
 
-        print(f"[INFO] 수정할 파일: {len(files_to_update)}개")
+        print(f"[INFO] 번역이 있는 파일: {len(files_to_update)}개")
 
-        # 각 파일 처리
+        # 다국어 모드: 모든 JSON 파일을 복사 (번역 없는 파일도 필요)
+        if mode == 'multilang':
+            print(f"[INFO] 모든 JSON 파일을 {target_folder}로 복사 중...")
+            copied_count = 0
+            for json_file in data_folder.glob("*.json"):
+                target_file = target_folder / json_file.name
+                shutil.copy2(json_file, target_file)
+                copied_count += 1
+            print(f"[INFO] {copied_count}개 파일 복사 완료")
+
+        # 각 파일 처리 (번역 적용)
         success_count = 0
         total_files = len(files_to_update)
 
@@ -91,9 +101,10 @@ class RPGMakerPacker:
                 continue
 
             try:
-                # 원본 파일 복사 (replace 모드에서는 백업만 됨)
-                if mode == 'multilang':
-                    shutil.copy2(source_file, target_file)
+                # replace 모드에서만 파일 복사 (multilang은 이미 위에서 복사함)
+                if mode == 'replace':
+                    # replace 모드는 target_folder가 data_folder와 동일하므로 복사 불필요
+                    pass
 
                 # 파일 타입에 따라 번역 적용
                 if file_name.startswith('Map') and file_name != 'MapInfos.json':
@@ -103,15 +114,15 @@ class RPGMakerPacker:
                     if self._apply_to_common_events(target_file, items):
                         success_count += 1
                 elif file_name == 'System.json':
-                    if self._apply_to_system(target_file, items):
+                    if self._apply_to_system(target_file, items, target_language):
                         success_count += 1
                 else:
-                    print(f"[INFO] 지원하지 않는 파일 타입: {file_name}")
+                    print(f"[INFO] 번역 적용 안 함 (지원하지 않는 파일): {file_name}")
 
             except Exception as e:
                 print(f"[ERROR] {file_name} 처리 실패: {e}")
 
-        print(f"\n[SUCCESS] 완료: {success_count}/{total_files}개 파일 적용")
+        print(f"\n[SUCCESS] 번역 적용 완료: {success_count}/{total_files}개 파일")
         print(f"[INFO] 번역 파일 위치: {target_folder}")
 
         if mode == 'replace':
@@ -294,12 +305,13 @@ class RPGMakerPacker:
             print(f"  [ERROR] CommonEvents.json 처리 실패: {e}")
             return False
 
-    def _apply_to_system(self, file_path: Path, items: List[Dict]) -> bool:
+    def _apply_to_system(self, file_path: Path, items: List[Dict], target_language: str = 'ko') -> bool:
         """System.json에 번역 적용
 
         Args:
             file_path: System.json 경로
             items: 번역 항목 리스트
+            target_language: 대상 언어 코드
 
         Returns:
             성공 여부
@@ -325,10 +337,33 @@ class RPGMakerPacker:
                     data['currencyUnit'] = translated
                     modified = True
 
+            # Always apply Korean UI terms for Korean translation
+            # This translates the standard RPG Maker menu items
+            if 'terms' in data and target_language == 'ko':
+                korean_basic = ["레벨", "Lv", "HP", "HP", "MP", "MP", "TP", "TP", "경험치", "경험치"]
+                korean_commands = [
+                    "싸운다", "도망친다", "공격", "방어", "아이템", "스킬", "장비", "상태",
+                    "진형", "저장", "게임 종료", "옵션", "무기", "방어구", "중요 아이템",
+                    "장비 변경", "최강 장비", "전부 해제", "새 게임", "이어하기", "",
+                    "타이틀로", "취소", "", "구입", "판매"
+                ]
+
+                if 'basic' in data['terms'] and len(data['terms']['basic']) >= 10:
+                    for i in range(len(korean_basic)):
+                        if i < len(data['terms']['basic']):
+                            data['terms']['basic'][i] = korean_basic[i]
+                    modified = True
+
+                if 'commands' in data['terms'] and len(data['terms']['commands']) >= 26:
+                    for i in range(len(korean_commands)):
+                        if i < len(data['terms']['commands']) and korean_commands[i]:
+                            data['terms']['commands'][i] = korean_commands[i]
+                    modified = True
+
             if modified:
                 with open(file_path, 'w', encoding='utf-8') as f:
                     json.dump(data, f, ensure_ascii=False, indent=2)
-                print(f"  [OK] System.json: {len(items)}개 항목 적용")
+                print(f"  [OK] System.json: {len(items)}개 항목 + UI 용어 적용")
                 return True
             else:
                 print(f"  [INFO] System.json: 변경 사항 없음")
