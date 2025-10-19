@@ -93,14 +93,24 @@ class PatchExporter:
                 shutil.copy2(plugins_js_src, plugins_js_dst)
                 status['files_copied'] += 1
 
-            # 4. SimpleLanguage.js 플러그인 복사
+            # 4. SimpleLanguage.js 플러그인 복사 또는 생성
             plugin_src = game_path / "js" / "plugins" / "SimpleLanguage.js"
+            js_plugins_dir.mkdir(parents=True, exist_ok=True)
+
             if plugin_src.exists():
-                # plugins 폴더 생성 (js는 이미 위에서 생성됨)
-                js_plugins_dir.mkdir(parents=True, exist_ok=True)
+                # 게임 폴더에 있으면 복사
                 shutil.copy2(plugin_src, js_plugins_dir / "SimpleLanguage.js")
                 status['folders_created'].append('js/plugins')
                 status['files_copied'] += 1
+            else:
+                # 게임 폴더에 없으면 템플릿에서 생성
+                from core.rpgmaker_plugin_installer import RPGMakerPluginInstaller
+                installer = RPGMakerPluginInstaller()
+                plugin_dst = js_plugins_dir / "SimpleLanguage.js"
+                plugin_dst.write_text(installer.PLUGIN_TEMPLATE, encoding='utf-8')
+                status['folders_created'].append('js/plugins')
+                status['files_copied'] += 1
+                print(f"[INFO] SimpleLanguage.js generated from template")
 
             # 5. BAT 파일 생성 (3개 언어)
             for lang in ['ko', 'en', 'ja']:
